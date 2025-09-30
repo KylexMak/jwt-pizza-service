@@ -46,9 +46,11 @@ app.use('*', (req, res) => {
 });
 
 // Default error handler for all exceptions and errors.
-app.use((err, req, res, next) => {
-  res.status(err.statusCode ?? 500).json({ message: err.message, stack: err.stack });
-  next();
+app.use((err, req, res) => {
+  const statusCode = err.statusCode || 500;
+  const response = { message: err.message || `internal server error: ${err.message}`};
+  response.stack = err.stack;
+  res.status(statusCode).json(response);
 });
 
 module.exports = app;

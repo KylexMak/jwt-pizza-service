@@ -8,15 +8,20 @@ beforeAll(async () => {
   testUser.email = Math.random().toString(36).substring(2, 12) + '@test.com';
   const registerRes = await request(app).post('/api/auth').send(testUser);
   testUserAuthToken = registerRes.body.token;
+  expectValidJwt(testUserAuthToken);
 });
 
 test('login', async () => {
   const loginRes = await request(app).put('/api/auth').send(testUser);
   expect(loginRes.status).toBe(200);
-  expect(loginRes.body.token).toMatch(/^[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*$/);
-
+  expectValidJwt(loginRes.body.token);
+  
   const user = { ...testUser, roles: [{ role: 'diner' }] };
   console.log('Auth Token: ', testUserAuthToken);
   delete user.password;
   expect(loginRes.body.user).toMatchObject(user);
 });
+
+function expectValidJwt(potentialJwt) {
+  expect(potentialJwt).toMatch(/^[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*$/);
+}
