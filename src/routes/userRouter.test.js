@@ -30,76 +30,123 @@ app.use(express.json());
 app.use('/api/user', userRouter);
 
 describe('GET /api/user/me', () => {
-test('responds with authenticated user info', async () => {
-    const res = await request(app)
-    .get('/api/user/me')
-    .set('Authorization', 'Bearer valid-user-token');
+  test('responds with authenticated user info', async () => {
+      const res = await request(app)
+      .get('/api/user/me')
+      .set('Authorization', 'Bearer valid-user-token');
 
-    expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('id', 1);
-});
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('id', 1);
+  });
 
-test('returns 401 unauthorized if no token', async () => {
-    const res = await request(app).get('/api/user/me');
-    expect(res.status).toBe(401);
-    expect(res.body.message).toMatch(/unauthorized/i);
-});
+  test('returns 401 unauthorized if no token', async () => {
+      const res = await request(app).get('/api/user/me');
+      expect(res.status).toBe(401);
+      expect(res.body.message).toMatch(/unauthorized/i);
+  });
 });
 
 describe('PUT /api/user/:userId', () => {
-const updateData = { name: 'Updated Name', email: 'updated@test.com', password: 'newpass' };
+  const updateData = { name: 'Updated Name', email: 'updated@test.com', password: 'newpass' };
 
-beforeEach(() => {
-    DB.updateUser.mockClear();
-    setAuth.mockClear();
+  beforeEach(() => {
+      DB.updateUser.mockClear();
+      setAuth.mockClear();
+  });
+
+  test('allows user to update their own info', async () => {
+      DB.updateUser.mockResolvedValue({ id: 1, ...updateData, roles: [{ role: 'diner' }] });
+
+      const res = await request(app)
+      .put('/api/user/1')
+      .send(updateData)
+      .set('Authorization', 'Bearer valid-user-token');
+
+      expect(res.status).toBe(200);
+      expect(DB.updateUser).toHaveBeenCalledWith(1, updateData.name, updateData.email, updateData.password);
+      expect(setAuth).toHaveBeenCalled();
+      expect(res.body.user).toMatchObject({ id: 1, name: 'Updated Name' });
+      expect(res.body.token).toBe('new.token');
+  });
+
+  test('allows admin to update other user info', async () => {
+      DB.updateUser.mockResolvedValue({ id: 2, ...updateData, roles: [{ role: 'diner' }] });
+
+      const res = await request(app)
+      .put('/api/user/2')
+      .send(updateData)
+      .set('Authorization', 'Bearer valid-admin-token');
+
+      expect(res.status).toBe(200);
+      expect(DB.updateUser).toHaveBeenCalledWith(2, updateData.name, updateData.email, updateData.password);
+      expect(setAuth).toHaveBeenCalled();
+      expect(res.body.user).toMatchObject({ id: 2, name: 'Updated Name' });
+  });
+
+  test('returns 403 forbidden if user updates another user without admin role', async () => {
+      const res = await request(app)
+      .put('/api/user/2')
+      .send(updateData)
+      .set('Authorization', 'Bearer valid-user-token');
+
+      expect(res.status).toBe(403);
+      expect(res.body.message).toMatch(/unauthorized/i);
+      expect(DB.updateUser).not.toHaveBeenCalled();
+      expect(setAuth).not.toHaveBeenCalled();
+  });
+
+  test('returns 401 if not authenticated', async () => {
+      const res = await request(app).put('/api/user/1').send(updateData);
+
+      expect(res.status).toBe(401);
+      expect(res.body.message).toMatch(/unauthorized/i);
+      expect(DB.updateUser).not.toHaveBeenCalled();
+  });
 });
 
-test('allows user to update their own info', async () => {
-    DB.updateUser.mockResolvedValue({ id: 1, ...updateData, roles: [{ role: 'diner' }] });
-
-    const res = await request(app)
-    .put('/api/user/1')
-    .send(updateData)
-    .set('Authorization', 'Bearer valid-user-token');
-
-    expect(res.status).toBe(200);
-    expect(DB.updateUser).toHaveBeenCalledWith(1, updateData.name, updateData.email, updateData.password);
-    expect(setAuth).toHaveBeenCalled();
-    expect(res.body.user).toMatchObject({ id: 1, name: 'Updated Name' });
-    expect(res.body.token).toBe('new.token');
+app.post('/api/auth/register', (req, res) => {
+  const user = {id: 1, name: req.body.name, email: req.body.email, roles: [{ role: 'diner' }]};
+  const token = 'valid-user-token';
+  res.json({ user, token });
 });
 
-test('allows admin to update other user info', async () => {
-    DB.updateUser.mockResolvedValue({ id: 2, ...updateData, roles: [{ role: 'diner' }] });
+async function registerUser(service){
+  const testUser = { name: 'Test User', email: 'testmail@test.com', password: 'testpass' };
+  const registerRes = await service.post('/api/auth/register').send(testUser);
+  registerRes.body.user.password = testUser.password; // add password for login
 
-    const res = await request(app)
-    .put('/api/user/2')
-    .send(updateData)
-    .set('Authorization', 'Bearer valid-admin-token');
+  return [registerRes.body.user, registerRes.body.token];
+}
 
-    expect(res.status).toBe(200);
-    expect(DB.updateUser).toHaveBeenCalledWith(2, updateData.name, updateData.email, updateData.password);
-    expect(setAuth).toHaveBeenCalled();
-    expect(res.body.user).toMatchObject({ id: 2, name: 'Updated Name' });
-});
+describe('GET /api/user?page=1&limit=10&name=*', () => {
+  beforeEach(() => {
+    DB.listAllUsers = jest.fn();
+  });
 
-test('returns 403 forbidden if user updates another user without admin role', async () => {
-    const res = await request(app)
-    .put('/api/user/2')
-    .send(updateData)
-    .set('Authorization', 'Bearer valid-user-token');
+  test('list users unauthorized', async () => {
+  const listUsersRes = await request(app).get('/api/user');
+  expect(listUsersRes.status).toBe(401);
+  });
 
-    expect(res.status).toBe(403);
-    expect(res.body.message).toMatch(/unauthorized/i);
-    expect(DB.updateUser).not.toHaveBeenCalled();
-    expect(setAuth).not.toHaveBeenCalled();
-});
+  test('list users', async () => {
+    DB.listAllUsers.mockResolvedValue(
+      { users: [
+        {id: 1, name: 'Test User', email: 'testmail@test.com', roles: [{ role: 'diner' }]},
+        {id:2, name: 'Alice', email: 'alice@test.com', roles: [{role: 'diner'}, {role: 'franchisee'}]}
+        ] 
+      });
 
-test('returns 401 if not authenticated', async () => {
-    const res = await request(app).put('/api/user/1').send(updateData);
+    const [user, token] = await registerUser(request(app));
 
-    expect(res.status).toBe(401);
-    expect(res.body.message).toMatch(/unauthorized/i);
-    expect(DB.updateUser).not.toHaveBeenCalled();
-});
+    const listUsersRes = await request(app)
+      .get('/api/user?page=1&limit=10&name=*')
+      .set('Authorization', `Bearer ${token}`);
+    expect(listUsersRes.status).toBe(200);
+    expect(user).toBeDefined();
+    expect(listUsersRes).toBeDefined();
+    expect(listUsersRes).toHaveProperty('body');
+    const body = listUsersRes.body;
+    expect(body).toHaveProperty('users');
+    expect(body.users.length).toBe(2);
+  });
 });

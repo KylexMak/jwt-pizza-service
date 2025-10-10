@@ -109,6 +109,29 @@ describe('DB Unit Tests', () => {
     expect(result).toEqual(updatedUser);
   });
 
+  test('lists all users', async () => {
+    const usersMock = [
+      {id: 1, name: 'Alice', email: 'alice@jwt.com'},
+      {id: 2, name: 'Bob', email: 'bob@jwt.com'},
+    ]
+    const aliceRoles = [{ role: 'diner'}];
+    const bobRoles = [{ role: 'admin'}, {role: 'franchisee'}];
+
+    mockConnection.execute.mockResolvedValueOnce([usersMock, []])
+    .mockResolvedValueOnce([aliceRoles, []])
+    .mockResolvedValueOnce([bobRoles, []]);
+
+    const result = await DB.listAllUsers();
+
+    expect(result.users).toHaveLength(2);
+    expect(result).toEqual({
+      users: [
+        { ...usersMock[0], roles: aliceRoles },
+        { ...usersMock[1], roles: bobRoles },
+      ]
+    });
+    expect(mockConnection.end).toHaveBeenCalled();
+  });
 
   test('does not update if no fields changed; calls getUser anyway', async () => {
     const userId = 123;

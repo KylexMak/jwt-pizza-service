@@ -99,6 +99,20 @@ class DB {
     }
   }
 
+  async listAllUsers(){
+    const connection = await this.getConnection();
+    try {
+      const users = await this.query(connection, `SELECT id, name, email FROM user`);
+      for (const user of users) {
+        let roleResult = await this.query(connection, `SELECT * FROM userRole WHERE userId=?`, [user.id]);
+        user.roles = roleResult
+      }
+      return {users: users};
+    } finally {
+      connection.end();
+    }
+  }
+
   async loginUser(userId, token) {
     token = this.getTokenSignature(token);
     const connection = await this.getConnection();
