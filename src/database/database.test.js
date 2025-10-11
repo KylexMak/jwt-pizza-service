@@ -10,6 +10,7 @@ const mysql = require('mysql2/promise');
 const { DB, Role } = require('./database.js');
 const bcrypt = require('bcrypt');
 const config = require('../config.js');
+const { StatusCodeError } = require('../endpointHelper.js');
 
 describe('DB Unit Tests', () => {
   let mockConnection;
@@ -130,6 +131,25 @@ describe('DB Unit Tests', () => {
       ], false,
     ]);
     expect(mockConnection.end).toHaveBeenCalled();
+  });
+
+  test('deletes user roles and user', async () => {
+    mockConnection.execute.mockResolvedValueOnce([{}])
+    .mockResolvedValueOnce([{}]);
+
+    await DB.deleteUser(42);
+    expect(mockConnection.execute).toHaveBeenNthCalledWith(1, 'DELETE FROM userRole WHERE userId=?', [42]);
+    expect(mockConnection.execute).toHaveBeenNthCalledWith(2, 'DELETE FROM user WHERE id=?', [42]);
+    expect(mockConnection.commit).toHaveBeenCalled();
+  });
+
+  test('throws error and rolls back if delete user fails', async () => {
+    mockConnection.execute.mockResolvedValueOnce(new StatusCodeError(500, 'unable to delete user'))
+    .mockResolvedValueOnce([{}]);
+
+    await expect(DB.deleteUser(42)).rejects.toThrow('unable to delete user');
+    expect(mockConnection.rollback).toHaveBeenCalled();
+    expect(mockConnection.commit).not.toHaveBeenCalled();
   });
 
   test('does not update if no fields changed; calls getUser anyway', async () => {

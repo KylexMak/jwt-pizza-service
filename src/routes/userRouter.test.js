@@ -150,3 +150,29 @@ describe('GET /api/user?page=1&limit=10&name=*', () => {
     expect(body.users.length).toBe(2);
   });
 });
+
+describe('DELETE /api/user/:userId', () => {
+  beforeEach(() => {
+    DB.deleteUser = jest.fn();
+  });
+
+  test('delete user unauthorized', async () => {
+    const deleteRes = await request(app).delete('/api/user/1');
+    expect(deleteRes.status).toBe(401);
+  });
+
+  test('delete user forbidden for non-admin', async () => {
+    const deleteRes = await request(app)
+      .delete('/api/user/1')
+      .set('Authorization', 'Bearer valid-user-token');
+    expect(deleteRes.status).toBe(403);
+  });
+
+  test('delete user as admin', async () => {
+    DB.deleteUser.mockResolvedValue();
+    const deleteRes = await request(app)
+      .delete('/api/user/1')
+      .set('Authorization', 'Bearer valid-admin-token');
+    expect(deleteRes.body.message).toBe('user deleted');
+  });
+});
