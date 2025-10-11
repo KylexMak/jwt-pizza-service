@@ -123,13 +123,12 @@ describe('DB Unit Tests', () => {
 
     const result = await DB.listAllUsers();
 
-    expect(result.users).toHaveLength(2);
-    expect(result).toEqual({
-      users: [
+    expect(result[0]).toHaveLength(2);
+    expect(result).toEqual([[
         { ...usersMock[0], roles: aliceRoles },
         { ...usersMock[1], roles: bobRoles },
-      ]
-    });
+      ], false,
+    ]);
     expect(mockConnection.end).toHaveBeenCalled();
   });
 

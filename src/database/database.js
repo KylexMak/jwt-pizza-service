@@ -99,15 +99,25 @@ class DB {
     }
   }
 
-  async listAllUsers(){
+  async listAllUsers(page = 0, limit = 10, nameFilter = '*') {
     const connection = await this.getConnection();
+
+    const offset = page * limit;
+    nameFilter = nameFilter.replace(/\*/g, '%');
+
     try {
-      const users = await this.query(connection, `SELECT id, name, email FROM user`);
-      for (const user of users) {
-        let roleResult = await this.query(connection, `SELECT * FROM userRole WHERE userId=?`, [user.id]);
-        user.roles = roleResult
+      let users = await this.query(connection, `SELECT id, name, email FROM user WHERE name LIKE ? LIMIT ${limit + 1} OFFSET ${offset}`, [nameFilter]);
+
+      const more = users.length > limit;
+
+      if (more) {
+        users = users.slice(0, limit);
       }
-      return {users: users};
+
+      for (const user of users) {
+        user.roles = await this.query(connection, `SELECT role FROM userRole WHERE userId=?`, [user.id]);
+      }
+      return [users, more];
     } finally {
       connection.end();
     }

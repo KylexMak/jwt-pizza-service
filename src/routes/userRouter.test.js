@@ -24,6 +24,7 @@ jest.mock('./authRouter.js', () => ({
 const { DB } = require('../database/database.js');
 const { setAuth } = require('./authRouter.js');
 const userRouter = require('./userRouter.js');
+const e = require('express');
 
 const app = express();
 app.use(express.json());
@@ -105,8 +106,8 @@ describe('PUT /api/user/:userId', () => {
 });
 
 app.post('/api/auth/register', (req, res) => {
-  const user = {id: 1, name: req.body.name, email: req.body.email, roles: [{ role: 'diner' }]};
-  const token = 'valid-user-token';
+  const user = {id: 1, name: req.body.name, email: req.body.email, roles: [{ role: 'admin' }]};
+  const token = 'valid-admin-token';
   res.json({ user, token });
 });
 
@@ -130,11 +131,11 @@ describe('GET /api/user?page=1&limit=10&name=*', () => {
 
   test('list users', async () => {
     DB.listAllUsers.mockResolvedValue(
-      { users: [
+      [[
         {id: 1, name: 'Test User', email: 'testmail@test.com', roles: [{ role: 'diner' }]},
         {id:2, name: 'Alice', email: 'alice@test.com', roles: [{role: 'diner'}, {role: 'franchisee'}]}
-        ] 
-      });
+        ], false
+      ]);
 
     const [user, token] = await registerUser(request(app));
 
