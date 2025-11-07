@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config.js');
 const { asyncHandler } = require('../endpointHelper.js');
 const { DB, Role } = require('../database/database.js');
+const metrics = require('../metrics.js');
 
 const authRouter = express.Router();
 
@@ -73,10 +74,16 @@ authRouter.post(
 authRouter.put(
   '/',
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    const user = await DB.getUser(email, password);
-    const auth = await setAuth(user);
-    res.json({ user: user, token: auth });
+    try{
+      const { email, password } = req.body;
+      const user = await DB.getUser(email, password);
+      const auth = await setAuth(user);
+      res.json({ user: user, token: auth });
+    }
+    catch(err){
+      metrics.incrementAuthFailure();
+      res.status(401).json({ message: 'invalid email or password' });
+    }
   })
 );
 
@@ -91,6 +98,8 @@ authRouter.delete(
 );
 
 async function setAuth(user) {
+  metrics.incrementAuthSuccess();
+  metrics.addUserAsActive(user.id);
   const token = jwt.sign(user, config.jwtSecret);
   await DB.loginUser(user.id, token);
   return token;
@@ -100,6 +109,7 @@ async function clearAuth(req) {
   const token = readAuthToken(req);
   if (token) {
     await DB.logoutUser(token);
+    metrics.removeUserFromActive(req.user.id);
   }
 }
 
