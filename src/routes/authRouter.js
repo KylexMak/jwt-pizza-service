@@ -80,7 +80,7 @@ authRouter.put(
       const auth = await setAuth(user);
       res.json({ user: user, token: auth });
     }
-    catch(err){
+    catch{
       metrics.incrementAuthFailure();
       res.status(401).json({ message: 'invalid email or password' });
     }
