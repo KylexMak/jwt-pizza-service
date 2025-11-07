@@ -91,7 +91,6 @@ orderRouter.post(
       if (r.ok) {
         metrics.incrementPizzasSold(order.items.length);
         const totalBitcoin = order.items.reduce((sum, item) => sum + item.price, 0);
-        console.log(`[Order] Total Revenue from Order ID ${order.id}: ${totalBitcoin} BTC`);
         metrics.addRevenue(totalBitcoin);
         res.send({ order, followLinkToEndChaos: j.reportUrl, jwt: j.jwt });
       } else {

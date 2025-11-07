@@ -181,7 +181,6 @@ class Metrics {
    * @param {number} [interval=5000] - Interval in milliseconds to send metrics.
    */
   startMetricsCollection(interval = 5000) {
-    console.log(`Starting metrics collection. Reporting to Grafana every ${interval}ms.`);
     const collectAndSendMetrics = async () => {
         // --- Send System Metrics (Gauge) ---
         const cpuValue = await this._getCpuUsagePercentage();
@@ -204,10 +203,8 @@ class Metrics {
         this._sendMetric('auth.attempts.success', this.authSuccess, 'sum', '1');
         this._sendMetric('auth.attempts.failure', this.authFailure, 'sum', '1');
         const activeUserCount = this.activeUsers.size;
-        console.log(`[Metrics Loop] Active Users: ${activeUserCount}`);
         this._sendMetric('auth.users.active', activeUserCount, 'gauge', '1');
 
-        console.log(`[Metrics Loop] Pizzas Sold: ${this.pizzasSold}, Pizza Creation Failures: ${this.pizzaCreationFailures}, Total Revenue (cents): ${this.totalRevenueCents}`);
         this._sendMetric('order.pizzas.sold', this.pizzasSold, 'sum', '1');
         this._sendMetric('order.pizza.creation.failures', this.pizzaCreationFailures, 'sum', '1');
         this._sendMetric('order.revenue.total_cents', this.totalRevenueCents, 'sum', '1');
@@ -225,7 +222,6 @@ class Metrics {
  * Express middleware to track HTTP request metrics.
 */
 requestTracker(req, res, next) {
-    console.log(`[Metrics Loop] Reading GET count as: ${this.requestPutCounts}`);
     const start = process.hrtime.bigint();
 
     res.on('finish', () => {
@@ -286,7 +282,6 @@ requestTracker(req, res, next) {
   }
 
   addRevenue(amountCents) {
-    console.log(`[Metrics] Adding revenue: ${amountCents} cents`);
     this.totalRevenueCents += amountCents;
   }
 
