@@ -180,7 +180,7 @@ class Metrics {
    * Starts the periodic collection and sending of metrics.
    * @param {number} [interval=5000] - Interval in milliseconds to send metrics.
    */
-  startMetricsCollection(interval = 5000) {
+  startMetricsCollection(interval = 60000) {
     const collectAndSendMetrics = async () => {
         // --- Send System Metrics (Gauge) ---
         const cpuValue = await this._getCpuUsagePercentage();
