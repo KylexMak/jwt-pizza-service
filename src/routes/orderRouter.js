@@ -4,6 +4,7 @@ const { Role, DB } = require('../database/database.js');
 const { authRouter } = require('./authRouter.js');
 const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
 const metrics = require('../metrics.js');
+const logger = require('../logger.js');
 
 const orderRouter = express.Router();
 
@@ -82,12 +83,14 @@ orderRouter.post(
     try{
       const orderReq = req.body;
       const order = await DB.addDinerOrder(req.user, orderReq);
+      logger.log('info', 'factory-request', { reqBody: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }) });
       const r = await fetch(`${config.factory.url}/api/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${config.factory.apiKey}` },
         body: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }),
       });
       const j = await r.json();
+      logger.log('info', 'factory-response', { statusCode: r.status, resBody: JSON.stringify(j) });
       if (r.ok) {
         metrics.incrementPizzasSold(order.items.length);
         const totalBitcoin = order.items.reduce((sum, item) => sum + item.price, 0);

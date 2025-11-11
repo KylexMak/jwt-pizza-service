@@ -6,11 +6,13 @@ const userRouter = require('./routes/userRouter.js');
 const version = require('./version.json');
 const config = require('./config.js');
 const metrics = require('./metrics.js');
+const logger = require('./logger.js');
 
 const app = express();
 metrics.startMetricsCollection();
 
 app.use(express.json());
+app.use(logger.httpLogger);
 app.use(setAuthUser);
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
@@ -52,6 +54,12 @@ app.use('*', (req, res) => {
 
 // Default error handler for all exceptions and errors.
 app.use((err, req, res) => {
+  logger.log('error', 'unhannled-error', {
+    path: req.originalUrl,
+    method: req.method,
+    error: err.message,
+    stack: err.stack,
+  });
   const statusCode = err.statusCode || 500;
   const response = { message: err.message || `internal server error: ${err.message}`};
   response.stack = err.stack;
