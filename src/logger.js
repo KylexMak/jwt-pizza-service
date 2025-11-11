@@ -69,7 +69,7 @@ class Logger {
 
   sanitize(logString) {
     // Regex to find "password": "any-value" and replace it
-    return logString.replace(/\"password\":\s*\"[^\"]*\"/g, '"password": "*****"');
+    return logString.replace(/"password":\s*"[^"]*"/g, '"password": "*****"');
   }
 
   sendLogToGrafana(event) {
