@@ -61,7 +61,7 @@ class DB {
     try {
       const userResult = await this.query(connection, `SELECT * FROM user WHERE email=?`, [email]);
       const user = userResult[0];
-      if (!user || (password && !(await bcrypt.compare(password, user.password)))) {
+      if (!user || !password || !(await bcrypt.compare(password, user.password))) {
         throw new StatusCodeError('unknown user', 404);
       }
 
@@ -193,7 +193,9 @@ class DB {
       const orderId = orderResult.insertId;
       for (const item of order.items) {
         const menuId = await this.getID(connection, 'id', item.menuId, 'menu');
-        await this.query(connection, `INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?, ?, ?, ?)`, [orderId, menuId, item.description, item.price]);
+        const menuResult = await this.query(connection, `SELECT description, price FROM menu WHERE id=?`, [item.menuId]);
+        const price = menuResult[0].price;
+        await this.query(connection, `INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?, ?, ?, ?)`, [orderId, menuId, item.description, price]);
       }
       return { ...order, id: orderId };
     } finally {
@@ -335,8 +337,8 @@ class DB {
   }
 
   async query(connection, sql, params) {
-    logger.log('info', 'database-query', { sql:sql });
     const [results] = await connection.execute(sql, params);
+    logger.log('info', 'database-query', { sql:sql });
     return results;
   }
 
