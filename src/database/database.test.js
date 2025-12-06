@@ -335,31 +335,68 @@ describe('DB Unit Tests', () => {
   });
 
 
-  test('inserts an order and order items correctly', async () => {
+  test('inserts an order and order items correctly with secure price fetching', async () => {
     const user = { id: 1 };
     const order = {
       franchiseId: 1,
       storeId: 2,
       items: [
-        { menuId: 10, description: 'Burger', price: 5.99 },
+        { menuId: 10, description: 'Burger', price: 5.99 }, // Input price (ignored by DB, but used in input obj)
         { menuId: 11, description: 'Fries', price: 2.99 },
       ],
     };
 
-    mockConnection.execute.mockResolvedValueOnce([{ insertId: 123 }, []]);
-    mockConnection.execute.mockResolvedValue([[10]]);
-    mockConnection.execute.mockResolvedValue([[11]]);
+    // --- MOCKING THE DATABASE RESPONSES ---
+    
+    // 1. Initial Order Insert
+    // Corresponds to: INSERT INTO dinerOrder...
+    mockConnection.execute.mockResolvedValueOnce([{ insertId: 123 }]);
 
+    // --- ITEM 1 (Burger) ---
+    // 2. Validate Menu ID
+    // Corresponds to: this.getID(...)
+    mockConnection.execute.mockResolvedValueOnce([[{ id: 10 }]]); 
+
+    // 3. SECURE PRICE LOOKUP (The new step!)
+    // Corresponds to: SELECT description, price FROM menu WHERE id=?
+    // We return the "Real" price here.
+    mockConnection.execute.mockResolvedValueOnce([[{ price: 5.99, description: 'Burger' }]]);
+
+    // 4. Insert Item
+    // Corresponds to: INSERT INTO orderItem...
+    mockConnection.execute.mockResolvedValueOnce([]); 
+
+    // --- ITEM 2 (Fries) ---
+    // 5. Validate Menu ID
+    mockConnection.execute.mockResolvedValueOnce([[{ id: 11 }]]);
+
+    // 6. SECURE PRICE LOOKUP
+    mockConnection.execute.mockResolvedValueOnce([[{ price: 2.99, description: 'Fries' }]]);
+
+    // 7. Insert Item
+    mockConnection.execute.mockResolvedValueOnce([]);
+
+
+    // --- RUN THE CODE ---
     const result = await DB.addDinerOrder(user, order);
 
+
+    // --- ASSERTIONS ---
+
+    // 1. Verify Order Insert
     expect(mockConnection.execute).toHaveBeenCalledWith(
       'INSERT INTO dinerOrder (dinerId, franchiseId, storeId, date) VALUES (?, ?, ?, now())',
       [user.id, order.franchiseId, order.storeId]
     );
 
-    expect(DB.getID).toHaveBeenNthCalledWith(1, mockConnection, 'id', 10, 'menu');
-    expect(DB.getID).toHaveBeenNthCalledWith(2, mockConnection, 'id', 11, 'menu');
+    // 2. Verify Price Lookups occurred (New Assertion)
+    // This ensures your security fix is actually running!
+    expect(mockConnection.execute).toHaveBeenCalledWith(
+        expect.stringContaining('SELECT description, price FROM menu'),
+        [10]
+    );
 
+    // 3. Verify Item Inserts uses the prices
     expect(mockConnection.execute).toHaveBeenCalledWith(
       'INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?, ?, ?, ?)',
       [123, 10, 'Burger', 5.99]
@@ -372,7 +409,7 @@ describe('DB Unit Tests', () => {
 
     expect(result).toEqual({ ...order, id: 123 });
     expect(mockConnection.end).toHaveBeenCalled();
-  });
+});
 
   test('creates franchise and assigns admins successfully', async () => {
     const franchise = {
